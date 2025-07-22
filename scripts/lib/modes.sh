@@ -9,9 +9,10 @@ source "$(dirname "${BASH_SOURCE[0]}")/kopia-ops.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/interactive.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/backup-operations.sh"
 
-# 显示主菜单 - 修复交互问题，支持ESC和数字键
+# 显示主菜单 - 修复交互问题，支持ESC和数字键，自动安装whiptail
 show_main_menu() {
-    if command -v whiptail >/dev/null 2>&1; then
+    # 检查并自动安装whiptail
+    if check_whiptail; then
         # 构建标题和提示信息
         local title="NFS Backup Manager (手动模式)"
         local prompt="选择操作:\n\n⌨️  ESC键: 退出管理UI"
