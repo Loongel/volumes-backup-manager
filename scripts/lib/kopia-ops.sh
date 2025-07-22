@@ -93,7 +93,8 @@ check_webdav_directory() {
         404)
             log_warn "WebDAV目录不存在 (404 Not Found)" "WebDAV"
             log_info "尝试创建目录..." "WebDAV"
-            return create_webdav_directory "$webdav_url" "$username" "$password"
+            create_webdav_directory "$webdav_url" "$username" "$password"
+            return $?
             ;;
         *)
             log_warn "WebDAV连接测试返回状态码: $response_code" "WebDAV"
@@ -110,6 +111,15 @@ create_webdav_directory() {
     local password="$3"
 
     log_info "尝试创建WebDAV目录: $webdav_url" "WebDAV"
+
+    # 提取直接父目录
+    local parent_url="${webdav_url%/*}"
+    
+    # 基准情况：到达协议头或无法再分割
+    if [[ "$parent_url" == *://*/* ]]; then
+        # 递归创建上级目录
+        create_webdav_directory "$parent_url" "$username" "$password" || return $?
+    fi
 
     # 使用MKCOL方法创建目录
     local create_response

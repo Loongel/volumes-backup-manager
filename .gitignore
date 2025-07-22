@@ -1,4 +1,6 @@
 secrets_info.txt
 .specstory/
 test_volumes/
+.gitignore
+
 
