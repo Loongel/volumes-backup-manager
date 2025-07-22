@@ -173,30 +173,13 @@ format_duration() {
 calculate_next_backup_time() {
     local hours_offset="${1:-6}"
 
-    # 将小数小时转换为秒数（纯bash实现）
-    local seconds_offset
-    if [[ "$hours_offset" == *"."* ]]; then
-        # 处理小数：分离整数和小数部分
-        local integer_part="${hours_offset%.*}"
-        local decimal_part="${hours_offset#*.}"
-
-        # 计算整数部分的秒数
-        local integer_seconds=$((integer_part * 3600))
-
-        # 计算小数部分的秒数（假设最多2位小数）
-        local decimal_seconds=0
-        if [ ${#decimal_part} -eq 1 ]; then
-            # 一位小数：0.1 = 360秒
-            decimal_seconds=$((decimal_part * 360))
-        elif [ ${#decimal_part} -eq 2 ]; then
-            # 两位小数：0.01 = 36秒
-            decimal_seconds=$((decimal_part * 36))
-        fi
-
-        seconds_offset=$((integer_seconds + decimal_seconds))
+    # 纯bash方案（支持两位小数）
+    if [[ "$hours_offset" =~ ([0-9]+)\.([0-9]{1,2}) ]]; then
+        local int="${BASH_REMATCH[1]}"
+        local dec="${BASH_REMATCH[2]}"
+        seconds_offset=$(( int * 3600 + 10#$dec * 36 ))
     else
-        # 整数小时
-        seconds_offset=$((hours_offset * 3600))
+        seconds_offset=$(( hours_offset * 3600 ))
     fi
 
     # 使用秒数计算下次备份时间

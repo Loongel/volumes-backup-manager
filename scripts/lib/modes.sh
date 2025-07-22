@@ -496,24 +496,26 @@ run_auto_mode() {
     log_info "执行启动完整性检查..." "启动"
     cleanup_corrupted_snapshots
     
-    # 获取备份周期（小时），默认6小时
-    local backup_cycle_hours="${BACKUP_CYCLE_HOURS:-6}"
-    log_info "备份周期设置: ${backup_cycle_hours}小时" "调度"
-
-    # 显示下次备份时间
-    local next_backup_time
-    next_backup_time=$(calculate_next_backup_time "$backup_cycle_hours")
-    log_info "下次自动备份预计时间: $next_backup_time" "调度"
-
     # 进入自动备份循环
     log_info "进入自动备份循环模式..." "备份"
     local cycle_count=0
 
     while true; do
+
         cycle_count=$((cycle_count + 1))
         log_info "开始备份周期 #$cycle_count" "调度"
 
-        # 检查仓库连接状态 - 借鉴compose脚本的连接检查机制
+        # 获取备份周期（小时），默认6小时
+        local backup_cycle_hours="${BACKUP_CYCLE_HOURS:-6}"
+        log_info "备份周期设置: ${backup_cycle_hours}小时" "调度"
+
+        # 显示下次备份时间
+        local next_backup_time
+        next_backup_time=$(calculate_next_backup_time "$backup_cycle_hours")
+        next_timestamp=$(date -d "$next_backup_time" +%s)  # 转换为时间戳
+        log_info "下次自动备份: $next_backup_time (等待时间: $(( (next_timestamp - $(date +%s)) / 60 )) 分钟)" "调度"
+
+        # 检查仓库连接状态 - 
         if ! check_kopia_connection; then
             log_warn "仓库连接丢失，尝试重新连接" "调度"
             if ! reconnect_kopia_repository; then
@@ -522,6 +524,13 @@ run_auto_mode() {
                 continue
             fi
         fi
+
+        log_info "等待" "调度"
+
+
+        while (( $(date +%s) < next_timestamp )); do
+            sleep 10
+        done
 
         # 执行所有卷的自动备份
         perform_auto_backup_cycle
@@ -534,49 +543,6 @@ run_auto_mode() {
             log_warn "仓库维护完成但有警告" "维护"
         fi
 
-        log_info "等待下次备份周期..." "调度"
-
-        # 计算等待秒数（支持小数小时，纯bash实现）
-        local wait_seconds
-        if [[ "$backup_cycle_hours" == *"."* ]]; then
-            # 处理小数：分离整数和小数部分
-            local integer_part="${backup_cycle_hours%.*}"
-            local decimal_part="${backup_cycle_hours#*.}"
-
-            # 计算整数部分的秒数
-            local integer_seconds=$((integer_part * 3600))
-
-            # 计算小数部分的秒数（假设最多2位小数）
-            local decimal_seconds=0
-            if [ ${#decimal_part} -eq 1 ]; then
-                # 一位小数：0.1 = 360秒
-                decimal_seconds=$((decimal_part * 360))
-            elif [ ${#decimal_part} -eq 2 ]; then
-                # 两位小数：0.01 = 36秒
-                decimal_seconds=$((decimal_part * 36))
-            fi
-
-            wait_seconds=$((integer_seconds + decimal_seconds))
-        else
-            # 整数小时
-            wait_seconds=$((backup_cycle_hours * 3600))
-        fi
-
-        # 确保wait_seconds是正整数
-        if [ -z "$wait_seconds" ] || [ "$wait_seconds" -le 0 ]; then
-            wait_seconds=60  # 默认1分钟
-        fi
-
-        local start_wait=$(date +%s)
-        local elapsed=$(($(date +%s) - start_wait))
-        local remaining=$((wait_seconds - elapsed))
-        local next_time=$(date -d "+${remaining} seconds" "+%H:%M:%S")
-
-        log_info "下次备份在 $(format_duration $wait_seconds) 后 (${next_time})" "调度"
-
-        while [ $(($(date +%s) - start_wait)) -lt $wait_seconds ]; do
-            sleep 10  # 每10秒检查一次，减少CPU占用
-        done
     done
 }
 

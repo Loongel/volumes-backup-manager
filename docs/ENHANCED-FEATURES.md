@@ -88,13 +88,6 @@ environment:
 
 如果不设置WebDAV环境变量，脚本仍然支持手动配置的Kopia仓库。
 
-## 测试
-
-运行测试脚本验证功能：
-
-```bash
-./test-enhanced-features.sh
-```
 
 ## 与原功能的兼容性
 
